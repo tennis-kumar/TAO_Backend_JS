@@ -1,7 +1,7 @@
 import express from "express";
 import Url from "../models/Url.js";
 import shortid from "shortid";
-import rateLimit from "express-rate-limit";
+// import rateLimit from "express-rate-limit";
 import redisClient from "../config/redisClient.js"; // Redis setup
 import authMiddleware from "../middleware/authMiddleware.js";
 
@@ -125,11 +125,23 @@ router.get("/shorten/:alias", async (req, res) => {
   }
 });
 
-// Analytics API for a specific URL
+// Analytics API for a specific URL (Only Owner Can Access)
 router.get("/analytics/:alias", authMiddleware, async (req, res) => {
   const { alias } = req.params;
 
   try {
+    // Find the URL and check ownership
+    const urlEntry = await Url.findOne({ shortUrl: alias });
+    if (!urlEntry) {
+      return res.status(404).json({ message: "URL not found" });
+    }
+
+    // Check if the authenticated user is the owner
+    if (urlEntry.userId.toString() !== req.user.id) {
+      return res.status(403).json({ message: "Unauthorized access" });
+    }
+
+    // Fetch analytics data
     const clicks = await Analytics.find({ alias });
 
     if (clicks.length === 0) {
@@ -170,18 +182,20 @@ router.get("/analytics/:alias", authMiddleware, async (req, res) => {
   }
 });
 
-// Analytics API for a specific topic
+// Analytics API for a specific topic (Only Owner Can Access)
 router.get("/analytics/topic/:topic", authMiddleware, async (req, res) => {
   const { topic } = req.params;
+  const userId = req.user.id; // Extract user ID from JWT
 
   try {
-    const urls = await Url.find({ topic });
+    // Fetch only the URLs that belong to the authenticated user
+    const urls = await Url.find({ topic, userId });
 
     if (!urls.length) {
       return res.status(404).json({ message: "No URLs found for this topic" });
     }
 
-    // Aggregate total clicks
+    // Aggregate total clicks for URLs owned by the user
     const totalClicks = urls.reduce((sum, url) => sum + (url.totalClicks || 0), 0);
 
     res.json({
@@ -197,5 +211,88 @@ router.get("/analytics/topic/:topic", authMiddleware, async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
+
+// Delete URL API
+router.delete("/shorten/:alias", authMiddleware, async (req, res) => {
+  const { alias } = req.params;
+  const userId = req.user.id; // Extract user ID from JWT
+
+  try {
+    // Find the URL and ensure it belongs to the authenticated user
+    const url = await Url.findOne({ shortUrl: alias, userId });
+    if (!url) {
+      return res.status(404).json({ message: "URL not found or unauthorized" });
+    }
+
+    // Remove from database
+    await Url.deleteOne({ _id: url._id });
+
+    // Remove from Redis cache (if exists)
+    await redisClient.del(alias);
+
+    res.json({ message: "URL deleted successfully" });
+  } catch (err) {
+    console.error("Error deleting URL:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// Update URL API
+router.patch("/shorten/:alias", authMiddleware, async (req, res) => {
+  const { alias } = req.params;
+  const { longUrl, customAlias, topic } = req.body;
+  const userId = req.user.id;
+
+  try {
+    // Find the URL and ensure it belongs to the authenticated user
+    const url = await Url.findOne({ shortUrl: alias, userId });
+    if (!url) {
+      return res.status(404).json({ message: "URL not found or unauthorized" });
+    }
+
+    // Check if the new customAlias is already taken
+    if (customAlias && customAlias !== alias) {
+      const existingAlias = await Url.findOne({ shortUrl: customAlias });
+      if (existingAlias) {
+        return res.status(400).json({ message: "Custom alias already taken" });
+      }
+      url.shortUrl = customAlias;
+    }
+
+    // Update allowed fields
+    if (longUrl) url.longUrl = longUrl;
+    if (topic) url.topic = topic;
+
+    await url.save();
+
+    // Update Redis cache for faster lookups
+    await redisClient.del(alias); // Remove old cache
+    await redisClient.setEx(url.shortUrl, 86400, url.longUrl); // Cache new URL
+
+    res.json({ message: "URL updated successfully", url });
+  } catch (err) {
+    console.error("Error updating URL:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// Fetch all URLs for a user
+router.get("/user/urls", authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.id; // Extract user ID from token
+
+    const urls = await Url.find({ userId });
+
+    if (!urls.length) {
+      return res.status(404).json({ message: "No URLs found for this user" });
+    }
+
+    res.json({ urls });
+  } catch (err) {
+    console.error("Error fetching user URLs:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
 
 export default router;
