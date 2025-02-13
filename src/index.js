@@ -9,6 +9,7 @@ import passport from "passport";
 import session from "express-session";
 import "./config/passport.js";
 import authRoutes from "./routes/auth.js";
+import urlRoutes from "./routes/urlRoutes.js";
 
 dotenv.config();
 
@@ -35,6 +36,7 @@ app.use(
   app.use(passport.session());
   
   app.use("/auth",authRoutes);
+  app.use("/api",urlRoutes);
 
   //DB connection
 connectDB();
