@@ -6,6 +6,7 @@ const UrlSchema = new mongoose.Schema({
   shortUrl: { type: String, required: true, unique: true },
   customAlias: { type: String, unique: true, sparse: true },
   topic: { type: String },
+  totalClicks: { type: Number, default: 0 },
   createdAt: { type: Date, default: Date.now },
 });
 
