@@ -125,15 +125,17 @@ router.get("/shorten/:alias", async (req, res) => {
   }
 });
 
-
-router.get("/analytics/:alias", async (req, res) => {
+// Analytics API for a specific URL
+router.get("/analytics/:alias", authMiddleware, async (req, res) => {
   const { alias } = req.params;
 
   try {
     const clicks = await Analytics.find({ alias });
 
     if (clicks.length === 0) {
-      return res.status(404).json({ message: "No analytics found for this URL" });
+      return res
+        .status(404)
+        .json({ message: "No analytics found for this URL" });
     }
 
     const totalClicks = clicks.length;
@@ -168,7 +170,8 @@ router.get("/analytics/:alias", async (req, res) => {
   }
 });
 
-router.get("/analytics/topic/:topic", async (req, res) => {
+// Analytics API for a specific topic
+router.get("/analytics/topic/:topic", authMiddleware, async (req, res) => {
   const { topic } = req.params;
 
   try {
@@ -184,7 +187,7 @@ router.get("/analytics/topic/:topic", async (req, res) => {
     res.json({
       topic,
       totalClicks,
-      urls: urls.map(url => ({
+      urls: urls.map((url) => ({
         shortUrl: url.shortUrl,
         totalClicks: url.totalClicks || 0,
       })),
@@ -194,8 +197,5 @@ router.get("/analytics/topic/:topic", async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
-
-
-
 
 export default router;
