@@ -7,6 +7,10 @@ const UrlSchema = new mongoose.Schema({
   customAlias: { type: String, unique: true, sparse: true },
   topic: { type: String },
   totalClicks: { type: Number, default: 0 },
+  uniqueUsers: { type: [String], default: [] }, // Store unique user IPs
+  clicksByDate: [{ date: String, count: Number }], // Track clicks per date
+  osType: [{ osName: String, uniqueClicks: Number, uniqueUsers: Number }],
+  deviceType: [{ deviceName: String, uniqueClicks: Number, uniqueUsers: Number }],
   createdAt: { type: Date, default: Date.now },
 });
 

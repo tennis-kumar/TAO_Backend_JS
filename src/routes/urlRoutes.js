@@ -8,6 +8,7 @@ import authMiddleware from "../middleware/authMiddleware.js";
 import useragent from "useragent";
 import geoip from "geoip-lite";
 import Analytics from "../models/Analytics.js";
+import { getOverallAnalytics } from "../controllers/analyticsController.js";
 
 const router = express.Router();
 
@@ -33,18 +34,22 @@ const rateLimiter = async (req, res, next) => {
   }
 };
 
-// 🔥 New: Function to Log Analytics
-const logAnalytics = async (alias, req) => {
+// 🔥  Updated Analytics Logger Function
+const logAnalytics = async (alias, req, ip) => {
   const userAgent = useragent.parse(req.headers["user-agent"]);
-  const ip = req.ip || req.headers["x-forwarded-for"] || req.connection.remoteAddress;
   const geo = geoip.lookup(ip) || {}; // Get geolocation data
 
+  const os = userAgent.os.family || "Unknown";
+  const device = userAgent.device.family || "Unknown";
+  const currentDate = new Date().toISOString().split("T")[0]; // YYYY-MM-DD format
+
+  // Update Analytics collection
   const analyticsEntry = new Analytics({
     alias,
     timestamp: new Date(),
     userAgent: req.headers["user-agent"],
-    os: userAgent.os.family,
-    device: userAgent.device.family,
+    os,
+    device,
     ip,
     location: {
       country: geo.country || "Unknown",
@@ -53,7 +58,51 @@ const logAnalytics = async (alias, req) => {
   });
 
   await analyticsEntry.save();
+
+  // Update URL Analytics in the URL collection
+  const urlEntry = await Url.findOne({ shortUrl: alias });
+
+  if (urlEntry) {
+    // Add unique user IP if not already present
+    const isNewUser = !urlEntry.uniqueUsers.includes(ip);
+    if (isNewUser) {
+      urlEntry.uniqueUsers.push(ip);
+    }
+
+    // Update clicksByDate
+    const dateEntry = urlEntry.clicksByDate.find((entry) => entry.date === currentDate);
+    if (dateEntry) {
+      dateEntry.count += 1;
+    } else {
+      urlEntry.clicksByDate.push({ date: currentDate, count: 1 });
+    }
+
+    // Update OS analytics
+    const osEntry = urlEntry.osType.find((entry) => entry.osName === os);
+    if (osEntry) {
+      osEntry.uniqueClicks += 1;
+      if (isNewUser) osEntry.uniqueUsers += 1;
+    } else {
+      urlEntry.osType.push({ osName: os, uniqueClicks: 1, uniqueUsers: isNewUser ? 1 : 0 });
+    }
+
+    // Update Device analytics
+    const deviceEntry = urlEntry.deviceType.find((entry) => entry.deviceName === device);
+    if (deviceEntry) {
+      deviceEntry.uniqueClicks += 1;
+      if (isNewUser) deviceEntry.uniqueUsers += 1;
+    } else {
+      urlEntry.deviceType.push({
+        deviceName: device,
+        uniqueClicks: 1,
+        uniqueUsers: isNewUser ? 1 : 0,
+      });
+    }
+
+    await urlEntry.save();
+  }
 };
+
 
 // Shorten URL API
 router.post("/shorten", authMiddleware,rateLimiter, async (req, res) => {
@@ -82,22 +131,17 @@ router.post("/shorten", authMiddleware,rateLimiter, async (req, res) => {
   }
 });
 
-// 🔥 New: Redirect API 🔥
+// 🔥 Updated: Redirect API with Improved Analytics 🔥
 router.get("/shorten/:alias", async (req, res) => {
   const { alias } = req.params;
+  const ip = req.ip || req.headers["x-forwarded-for"] || req.connection.remoteAddress;
 
   try {
     // Check Redis cache first
     const cachedUrl = await redisClient.get(alias);
     if (cachedUrl) {
-      await logAnalytics(alias, req); // Log analytics
+      await logAnalytics(alias, req, ip); // Log analytics
       await Url.updateOne({ shortUrl: alias }, { $inc: { totalClicks: 1 } }); // Increment totalClicks
-      console.log({
-        timestamp: new Date(),
-        userAgent: req.headers["user-agent"],
-        ip: req.ip,
-        alias,
-      });
       return res.redirect(301, cachedUrl); // Permanent Redirect
     }
 
@@ -107,16 +151,11 @@ router.get("/shorten/:alias", async (req, res) => {
       return res.status(404).json({ message: "Short URL not found" });
     }
 
-    await logAnalytics(alias, req); // Log analytics
+    await logAnalytics(alias, req, ip); // Log analytics
     await Url.updateOne({ shortUrl: alias }, { $inc: { totalClicks: 1 } }); // Increment totalClicks
 
+    // Cache in Redis
     await redisClient.setEx(alias, 86400, urlEntry.longUrl);
-    console.log({
-      timestamp: new Date(),
-      userAgent: req.headers["user-agent"],
-      ip: req.ip,
-      alias,
-    });
 
     res.redirect(301, urlEntry.longUrl);
   } catch (err) {
@@ -125,8 +164,87 @@ router.get("/shorten/:alias", async (req, res) => {
   }
 });
 
+// Route: GET /api/analytics/overall
+router.get("/analytics/overall", authMiddleware, getOverallAnalytics);
+// router.get("/overall", authMiddleware,async (req, res) => {
+//   try {
+//     const userId = req.user.id; // Authenticated user ID
+
+//     // Fetch all URLs created by the user
+//     const urls = await Url.find({ userId });
+
+//     if (!urls.length) {
+//       return res.status(404).json({ message: "No URLs found" });
+//     }
+
+//     // Total URLs
+//     const totalUrls = urls.length;
+
+//     // Aggregate Click Data
+//     const totalClicks = urls.reduce((sum, url) => sum + url.analytics.totalClicks, 0);
+//     const uniqueUsers = new Set(urls.flatMap(url => url.analytics.uniqueUsers)).size;
+
+//     // Clicks by Date (last 7 days)
+//     const clicksByDate = {};
+//     urls.forEach(url => {
+//       url.analytics.clicksByDate.forEach(({ date, count }) => {
+//         clicksByDate[date] = (clicksByDate[date] || 0) + count;
+//       });
+//     });
+
+//     const formattedClicksByDate = Object.entries(clicksByDate)
+//       .map(([date, count]) => ({ date, count }))
+//       .sort((a, b) => new Date(a.date) - new Date(b.date));
+
+//     // OS Type Analytics
+//     const osTypeStats = {};
+//     urls.forEach(url => {
+//       url.analytics.osType.forEach(({ osName, uniqueClicks, uniqueUsers }) => {
+//         if (!osTypeStats[osName]) osTypeStats[osName] = { uniqueClicks: 0, uniqueUsers: 0 };
+//         osTypeStats[osName].uniqueClicks += uniqueClicks;
+//         osTypeStats[osName].uniqueUsers += uniqueUsers;
+//       });
+//     });
+
+//     const osType = Object.entries(osTypeStats).map(([osName, data]) => ({
+//       osName,
+//       uniqueClicks: data.uniqueClicks,
+//       uniqueUsers: data.uniqueUsers,
+//     }));
+
+//     // Device Type Analytics
+//     const deviceTypeStats = {};
+//     urls.forEach(url => {
+//       url.analytics.deviceType.forEach(({ deviceName, uniqueClicks, uniqueUsers }) => {
+//         if (!deviceTypeStats[deviceName]) deviceTypeStats[deviceName] = { uniqueClicks: 0, uniqueUsers: 0 };
+//         deviceTypeStats[deviceName].uniqueClicks += uniqueClicks;
+//         deviceTypeStats[deviceName].uniqueUsers += uniqueUsers;
+//       });
+//     });
+
+//     const deviceType = Object.entries(deviceTypeStats).map(([deviceName, data]) => ({
+//       deviceName,
+//       uniqueClicks: data.uniqueClicks,
+//       uniqueUsers: data.uniqueUsers,
+//     }));
+
+//     // Response JSON
+//     res.json({
+//       totalUrls,
+//       totalClicks,
+//       uniqueUsers,
+//       clicksByDate: formattedClicksByDate,
+//       osType,
+//       deviceType,
+//     });
+//   } catch (error) {
+//     console.error("Error fetching overall analytics:", error);
+//     res.status(500).json({ message: "Server Error" });
+//   }
+// });
+
 // Analytics API for a specific URL (Only Owner Can Access)
-router.get("/analytics/:alias", authMiddleware, async (req, res) => {
+router.get("/analytics/url/:alias", authMiddleware, async (req, res) => {
   const { alias } = req.params;
 
   try {
@@ -293,6 +411,8 @@ router.get("/user/urls", authMiddleware, async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
+
+
 
 
 export default router;
