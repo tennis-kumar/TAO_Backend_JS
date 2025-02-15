@@ -23,7 +23,7 @@ router.get("/google/callback", (req, res, next) => {
         );
   
         // Redirect user to frontend with the token
-        res.redirect(`http://localhost:5173/auth-success?token=${token}`);
+        res.redirect(`${process.env.VITE_UI_URL}/auth-success?token=${token}`);
       });
     })(req, res, next);
   });
