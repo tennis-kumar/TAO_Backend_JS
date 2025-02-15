@@ -23,7 +23,8 @@ router.get("/google/callback", (req, res, next) => {
         );
   
         // Redirect user to frontend with the token
-        res.redirect(`${process.env.VITE_UI_URL}/auth-success?token=${token}`);
+        // res.redirect(`${process.env.VITE_UI_URL}/auth-success?token=${token}`);
+        res.redirect(`https://tao-url-shortner-ui.vercel.app/auth-success?token=${token}`);
       });
     })(req, res, next);
   });
