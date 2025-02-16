@@ -2,7 +2,7 @@
 
 A full-stack URL shortener with analytics tracking, authentication, and a user-friendly dashboard.
 
-## Link: `https://tao-url-shortner-ui.vercel.app/`
+## Link: [https://tao-url-shortner-ui.vercel.app/](https://tao-url-shortner-ui.vercel.app/)
 
 ## Features
 - Shorten URLs with optional custom aliases.
