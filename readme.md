@@ -4,6 +4,10 @@ A full-stack URL shortener with analytics tracking, authentication, and a user-f
 
 ## Link: [https://tao-url-shortner-ui.vercel.app/](https://tao-url-shortner-ui.vercel.app/)
 
+## Status
+- Ready for User testing, minor fixes in comming
+- Migration to Typescript in upcomming releases
+
 ## Features
 - Shorten URLs with optional custom aliases.
 - Track URL analytics (clicks, unique visitors, device type, location, etc.).
@@ -39,7 +43,7 @@ A full-stack URL shortener with analytics tracking, authentication, and a user-f
 ### Backend Setup
 1. Clone the repository and navigate to the backend folder:
    ```sh
-   git clone <repo-url>
+   git clone https://github.com/tennis-kumar/TAO_Backend_JS.git
    cd backend_js
    ```
 2. Install dependencies:
@@ -64,8 +68,9 @@ A full-stack URL shortener with analytics tracking, authentication, and a user-f
    ```
 
 ### Frontend Setup
-1. Navigate to the frontend folder:
+1. Clone Repository and Navigate to the frontend folder:
    ```sh
+   git clone https://github.com/tennis-kumar/TAO_Url_shortner_UI.git
    cd ../UI_ts
    ```
 2. Install dependencies:
