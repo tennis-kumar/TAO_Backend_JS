@@ -6,7 +6,11 @@ A full-stack URL shortener with analytics tracking, authentication, and a user-f
 
 ## Status
 - Ready for User testing, minor fixes in comming
+- next up optimized code with better responses and reduced response time
 - Migration to Typescript in upcomming releases
+
+### Note
+- initial response when we open app will be slow due to render spinning down the app due to low activity
 
 ## Features
 - Shorten URLs with optional custom aliases.
