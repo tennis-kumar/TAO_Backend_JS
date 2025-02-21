@@ -8,7 +8,7 @@ import {
     updateUrl 
 } from "../controllers/urlController.js";
 import { getOverallAnalytics, getUrlAnalytics, getTopicAnalytics } from "../controllers/analyticsController.js";
-import rateLimiter from "../middleware/ratelimitter.js";
+import rateLimiter from "../middleware/rateLimitter.js";
 
 const router = express.Router();
 
