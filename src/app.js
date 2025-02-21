@@ -7,13 +7,14 @@ import authRoutes from './routes/authRoutes.js';
 import urlRoutes from './routes/urlRoutes.js';
 import passport from "passport";
 import "./config/passport.js";
+import config from './config/env.js';
 
 const app = express();
 
 // Middlewares
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(cors());
+app.use(cors({ origin: config.clientUrl.toString(), credentials: true }));
 app.use(morgan('dev'));
 app.use(sessionMiddleware);
 app.use(passport.initialize());
