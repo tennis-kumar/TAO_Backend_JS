@@ -3,59 +3,48 @@ import cors from "cors";
 import helmet from "helmet";
 import morgan from "morgan";
 import dotenv from "dotenv";
-import connectDB from "./config/db.js";
-
 import passport from "passport";
-import session from "express-session";
-import "./config/passport.js";
-import authRoutes from "./routes/auth.js";
-import urlRoutes from "./routes/urlRoutes.js";
+
+import connectDB from "./config/db.js";
+import sessionMiddleware from "./middleware/SessionMiddleware.js";
+import errorHandler from "./middleware/errorMiddleware.js";
+
+import "./middleware/PassportMiddleware.js"; // Load Passport config
+import authRoutes from "./routes/AuthRoutes.js";
+import urlRoutes from "./routes/UrlRoutes.js";
 
 dotenv.config();
 
+// Initialize Express app
 const app = express();
 
-app.use(cors({ origin: "https://tao-url-shortner-ui.vercel.app" , credentials: true }));
+// Middleware
+app.use(cors({ origin: process.env.CLIENT_URL, credentials: true }));
 app.use(helmet());
 app.use(morgan("dev"));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// ✅ Add session middleware (Must be before passport)
-app.use(
-    session({
-      secret: process.env.SESSION_SECRET,
-      resave: false,
-      saveUninitialized: false,
-      cookie: { secure: true }, // Set secure: true if using HTTPS
-    })
-  );
-  
+// Session & Authentication
+app.use(sessionMiddleware);
+app.use(passport.initialize());
+app.use(passport.session());
 
-  app.use(passport.initialize());
-  app.use(passport.session());
+// Routes
+app.use("/auth", authRoutes);
+app.use("/api", urlRoutes);
 
+// Error Handling Middleware
+app.use(errorHandler);
 
-  app.use((error, req, res, next) => {
-    res.status(error.statusCode || 500).json({
-      message: error.message || 'Internal Server Error'
-    });
-  });
-  
-  app.use("/auth",authRoutes);
-  app.use("/api",urlRoutes);
-
-
+// Database Connection
 connectDB();
 
-
-
+// Root Route
 app.get("/", (req, res) => {
   res.send("URL Shortener API is running...");
 });
 
-
+// Start Server
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));

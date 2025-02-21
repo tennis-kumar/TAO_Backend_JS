@@ -1,32 +1,27 @@
-import passport from 'passport';
-import { generateToken } from '../utils/tokenUtils.js';
-import { createError } from '../utils/errorUtils.js';
+import passport from "passport";
+import AuthService from "../services/AuthService.js";
+import { createError } from "../utils/errorUtils.js";
 
-export const handleGoogleAuth = (req, res, next) => {
-  passport.authenticate('google', { 
-    scope: ['profile', 'email'] 
-  })(req, res, next);
-};
+export const handleGoogleAuth = passport.authenticate("google", {
+  scope: ["profile", "email"],
+});
 
-export const handleGoogleCallback = (req, res, next) => {
-  passport.authenticate('google', { failureRedirect: process.env.VITE_UI_URL }, async (err, user, info) => {
-    try {
-      if (err) throw err;
-      if (!user) throw createError('Authentication failed', 401);
+export const handleGoogleCallback = async (req, res, next) => {
+  try {
+    passport.authenticate("google", async (err, user) => {
+      if (err) return next(err);
+      if (!user) return next(createError("Authentication failed", 401));
 
-      await new Promise((resolve, reject) => {
-        req.logIn(user, (err) => err ? reject(err) : resolve());
-      });
-
-      const token = generateToken(user);
-      const redirectUrl = new URL('/auth-success', process.env.VITE_UI_URL);
-      redirectUrl.searchParams.set('token', token);
+      await AuthService.loginUser(req, user);
       
-      res.redirect(redirectUrl.toString());
-    } catch (error) {
-      next(error);
-    }
-  })(req, res, next);
+      const token = AuthService.generateAuthToken(user);
+      const redirectUrl = AuthService.getAuthSuccessUrl(token);
+      
+      res.redirect(redirectUrl);
+    })(req, res, next);
+  } catch (error) {
+    next(error);
+  }
 };
 
 export const getUserProfile = (req, res) => {
