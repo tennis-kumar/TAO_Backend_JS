@@ -1,19 +1,32 @@
-import jwt from "jsonwebtoken";
+import jwt from 'jsonwebtoken';
+import { createError } from '../utils/errorUtils.js';
 
-const authMiddleware = (req, res, next) => {
-  const token = req.header("Authorization")?.split(" ")[1]; // Get token from header
-
-  if (!token) {
-    return res.status(401).json({ message: "Unauthorized: No token provided" });
-  }
-
+export const verifyToken = (token, secret) => {
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET); // Verify token
-    req.user = decoded; // Attach decoded user data to req.user
-    next();
+    return jwt.verify(token, secret);
   } catch (error) {
-    return res.status(401).json({ message: "Unauthorized: Invalid token" });
+    throw createError('Invalid token', 401);
   }
 };
 
-export default authMiddleware;
+export const extractToken = (authHeader) => {
+  if (!authHeader) {
+    throw createError('No token provided', 401);
+  }
+  const token = authHeader.split(' ')[1];
+  if (!token) {
+    throw createError('Invalid token format', 401);
+  }
+  return token;
+};
+
+export const authMiddleware = (req, res, next) => {
+  try {
+    const token = extractToken(req.header('Authorization'));
+    const decoded = verifyToken(token, process.env.JWT_SECRET);
+    req.user = decoded;
+    next();
+  } catch (error) {
+    res.status(error.statusCode || 401).json({ message: error.message });
+  }
+};

@@ -10,7 +10,6 @@ import session from "express-session";
 import "./config/passport.js";
 import authRoutes from "./routes/auth.js";
 import urlRoutes from "./routes/urlRoutes.js";
-// import urlRoutes from "./routes/urlRoutesNew.js";
 
 dotenv.config();
 
@@ -28,28 +27,35 @@ app.use(
       secret: process.env.SESSION_SECRET,
       resave: false,
       saveUninitialized: false,
-      cookie: { secure: false }, // Set secure: true if using HTTPS
+      cookie: { secure: true }, // Set secure: true if using HTTPS
     })
   );
   
-  // ✅ Initialize Passport (After session)
+
   app.use(passport.initialize());
   app.use(passport.session());
+
+
+  app.use((error, req, res, next) => {
+    res.status(error.statusCode || 500).json({
+      message: error.message || 'Internal Server Error'
+    });
+  });
   
   app.use("/auth",authRoutes);
   app.use("/api",urlRoutes);
 
-  //DB connection
+
 connectDB();
 
 
-// Root Route
+
 app.get("/", (req, res) => {
   res.send("URL Shortener API is running...");
 });
 
-// Server Start
+
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+  console.log(`Server running on port ${PORT}`);
 });
