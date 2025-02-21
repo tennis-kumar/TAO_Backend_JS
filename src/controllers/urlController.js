@@ -1,4 +1,4 @@
-import UrlService from "../services/urlService.js";
+import UrlService from "../services/UrlService.js";
 import AnalyticsService from "../services/AnalyticsService.js";
 
 
