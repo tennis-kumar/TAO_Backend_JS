@@ -1,5 +1,5 @@
 import Url from "../models/Url.js";
-import redisClient from "../config/redisClient.js";
+import {redisClient} from "../config/redis.js";
 import shortid from "shortid";
 
 class UrlService {

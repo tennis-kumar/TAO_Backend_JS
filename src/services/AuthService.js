@@ -1,4 +1,4 @@
-import { generateToken } from "../utils/TokenUtils.js";
+import { generateToken } from "../utils/jwtUtils.js";
 
 class AuthService {
   static async loginUser(req, user) {

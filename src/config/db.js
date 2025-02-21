@@ -10,4 +10,9 @@ const connectDB = async () => {
   }
 };
 
+// Handle connection events
+mongoose.connection.on("disconnected",()=>{
+  console.log(" ⚠️ MongoDB Disconnected");
+})
+
 export default connectDB;

@@ -1,6 +1,14 @@
 import express from "express";
-import authMiddleware from "../middleware/authMiddleware.js";
-import { deleteUrl, getOverallAnalytics, getTopicAnalytics, getUrlAnalytics, getUrlsByUser, rateLimiter, redirectUrl, shortenUrl, updateUrl } from "../controllers/urlController.js";
+import {authMiddleware} from "../middleware/authMiddleware.js";
+import { 
+    deleteUrl, 
+    getUrlsByUser, 
+    redirectUrl, 
+    shortenUrl, 
+    updateUrl 
+} from "../controllers/urlController.js";
+import { getOverallAnalytics, getUrlAnalytics, getTopicAnalytics } from "../controllers/analyticsController.js";
+import rateLimiter from "../middleware/ratelimitter.js";
 
 const router = express.Router();
 
